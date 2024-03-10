@@ -89,7 +89,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
-        autoRestore = findPreference("auto_restore")!!
+        autoRestore = findPreference(PREF_KEY_AUTO_RESTORE)!!
         autoRestore.onPreferenceChangeListener = OnPreferenceChangeListener { _, newValue ->
             val enabled = newValue as Boolean
             try {
@@ -259,10 +259,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 // warn if battery optimization is active
                 // we don't bother with yet another dialog, because the ROM should handle it
                 val context = requireContext()
-                val powerManager = context.getSystemService(PowerManager::class.java)
-                if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-                    Toast.makeText(context, R.string.settings_backup_storage_battery_optimization,
-                        LENGTH_LONG).show()
+                val powerManager: PowerManager? = context.getSystemService(PowerManager::class.java)
+                if (powerManager != null &&
+                    !powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                ) {
+                    Toast.makeText(
+                        context, R.string.settings_backup_storage_battery_optimization,
+                        LENGTH_LONG
+                    ).show()
                 }
                 viewModel.enableStorageBackup()
                 backupStorage.isChecked = true

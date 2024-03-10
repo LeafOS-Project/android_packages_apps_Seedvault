@@ -1,6 +1,5 @@
 package com.stevesoltys.seedvault.e2e
 
-import android.app.backup.IBackupManager
 import android.content.pm.PackageInfo
 import android.os.ParcelFileDescriptor
 import com.stevesoltys.seedvault.e2e.io.BackupDataInputIntercept
@@ -25,8 +24,6 @@ internal interface LargeBackupTestBase : LargeTestBase {
     companion object {
         private const val BACKUP_TIMEOUT = 360 * 1000L
     }
-
-    val backupManager: IBackupManager get() = get()
 
     val spyBackupNotificationManager: BackupNotificationManager get() = get()
 
@@ -122,9 +119,21 @@ internal interface LargeBackupTestBase : LargeTestBase {
         coEvery {
             spyKVBackup.finishBackup()
         } answers {
+            val oldMap = HashMap<String, String>()
+            // @pm@ and android can get backed up multiple times (if we need more than one request)
+            // so we need to keep the data it backed up before
+            if (backupResult.kv.containsKey(packageName)) {
+                backupResult.kv[packageName]?.forEach { (key, value) ->
+                    // if a key existing in new data, we use its value from new data, don't override
+                    if (!data.containsKey(key)) oldMap[key] = value
+                }
+            }
             backupResult.kv[packageName!!] = data
                 .mapValues { entry -> entry.value.sha256() }
                 .toMutableMap()
+                .apply {
+                    putAll(oldMap)
+                }
 
             packageName = null
             data = mutableMapOf()
@@ -170,7 +179,7 @@ internal interface LargeBackupTestBase : LargeTestBase {
         clearMocks(spyBackupNotificationManager)
 
         every {
-            spyBackupNotificationManager.onBackupFinished(any(), any())
+            spyBackupNotificationManager.onBackupFinished(any(), any(), any())
         } answers {
             val success = firstArg<Boolean>()
             assert(success) { "Backup failed." }
